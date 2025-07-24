@@ -18,7 +18,7 @@ with open("min0.in", "w") as file:
   ntxo=2, IOUTFM=1, !NetCDF Binary Format.
   imin=1, !Energy Minimization
   maxcyc=5000, !Total Minimization Cycles to be run. Steepest Decent First, then Conjugate Gradient Method if ncyc < maxcyc
-  ncyc=2500, !Number of Steepest Decent Minimization Steps to run before switching to Conjugate Gradient
+  ncyc=1000, !Number of Steepest Decent Minimization Steps to run before switching to Conjugate Gradient
   cut=10.00000, !Cut Off Distance for Non-Bounded Interactions
   igb=0, !No Generalized Born
   ntp=0, !No pressure scaling (Default)
@@ -45,7 +45,7 @@ with open("min1.in", "w") as file:
   ntxo=2, IOUTFM=1, !NetCDF Binary Format.
   imin=1, !Energy Minimization
   maxcyc=5000, !Total Minimization Cycles to be run. Steepest Decent First, then Conjugate Gradient Method if ncyc < maxcyc
-  ncyc=2500, !Number of Steepest Decent Minimization Steps to run before switching to Conjugate Gradient
+  ncyc=1000, !Number of Steepest Decent Minimization Steps to run before switching to Conjugate Gradient
   cut=10.00000, !Cut Off Distance for Non-Bounded Interactions
   igb=0, !No Generalized Born
   ntp=0, !No pressure scaling (Default)
@@ -72,7 +72,7 @@ with open("min2.in", "w") as file:
   ntxo=2, IOUTFM=1, !NetCDF Binary Format.
   imin=1, !Energy Minimization
   maxcyc=5000, !Total Minimization Cycles to be run. Steepest Decent First, then Conjugate Gradient Method if ncyc < maxcyc
-  ncyc=2500, !Number of Steepest Decent Minimization Steps to run before switching to Conjugate Gradient
+  ncyc=1000, !Number of Steepest Decent Minimization Steps to run before switching to Conjugate Gradient
   cut=10.00000, !Cut Off Distance for Non-Bounded Interactions
   igb=0, !No Generalized Born
   ntp=0, !No pressure scaling (Default)
@@ -248,31 +248,42 @@ with open("md_NPT.in", "w") as file:
 
 
 #Submission File
-topfile = "cmp.parm7"
-coordfile = "cmp.crd"
-min_prefix = "min"
-heat_prefix = "heating"
-equiNVT_prefix = "equi_NVT"
-equiNPT_prefix = "equi_NPT"
-prod_prefix = "md_NPT"
-runfile = "run.sh"
+with open("job_submit.sh", "w") as file:
+    file.write(
+"""#!/bin/bash
+#SBATCH --job-name=
+#SBATCH --mail-type=BEGIN,END,FAIL
+#SBATCH --mail-user=user@gmail.com
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=20gb
+#SBATCH --gres=gpu:1g.5gb:1
+#SBATCH --output=out.log
+#SBATCH --partition=COMPUTE1Q
+#SBATCH --account=yanglab
 
-GPU_CARD_ID ="1"
-AMBERPATH = "/mnt/Tsunami_HHD/opt/amber20"
+topfile = "protein_solv_ions.parm7"
+coordfile = "protein_solv_ions.crd"
 
-RunFile = open(runfile,'w')
-RunFile.writelines("export CUDA_VISIBLE_DEVICES=" + GPU_CARD_ID + "\n")
-RunFile.writelines("source " + AMBERPATH + "/amber.sh" + "\n\n")
-RunFile.writelines("AMBERPATH=" + AMBERPATH + "/bin" + "\n\n")
+#Energy Minimization
+singularity exec --nv --bind /raid:/raid /raid/images/amber20.sif pmemd.cuda -O -i min0.in -p $topfile -c $coordfile -o min0.out -r min0.rst -ref $coordfile -x min0.nc -inf min0.info
 
-RunFile.writelines("$AMBERPATH/pmemd.cuda_SPFP -O -i " + min_prefix + "0.in -p " +  topfile + " -c " + coordfile + " -o " + min_prefix + "0.out -r " + min_prefix + "0.rst -ref " + coordfile + " -x " + min_prefix + "0.nc -inf " + min_prefix + "0.info" + "\n\n")
-RunFile.writelines("$AMBERPATH/pmemd.cuda_SPFP -O -i " + min_prefix + "1.in -p " +  topfile + " -c " + min_prefix + "0.rst -o " + min_prefix + "1.out -r " + min_prefix + "1.rst -ref " + min_prefix + "0.rst -x " + min_prefix + "1.nc -inf " + min_prefix + "1.info" + "\n\n")
-RunFile.writelines("$AMBERPATH/pmemd.cuda_SPFP -O -i " + min_prefix + "2.in -p " +  topfile + " -c " + min_prefix + "1.rst -o " + min_prefix + "2.out -r " + min_prefix + "2.rst -ref " + min_prefix + "1.rst -x " + min_prefix + "2.nc -inf " + min_prefix + "2.info" + "\n\n")
-RunFile.writelines("$AMBERPATH/pmemd.cuda_SPFP -O -i " + heat_prefix + ".in -p " +  topfile + " -c " + min_prefix + "2.rst -o " + heat_prefix + ".out -r " + heat_prefix + ".rst -ref " + min_prefix + "2.rst -x " + heat_prefix + ".nc -inf " + heat_prefix + ".info" + "\n\n")
-RunFile.writelines("$AMBERPATH/pmemd.cuda_SPFP -O -i " + equiNVT_prefix + ".in -p " +  topfile + " -c " + heat_prefix + ".rst -o " + equiNVT_prefix + ".out -r " + equiNVT_prefix + ".rst -ref " + heat_prefix + ".rst -x " + equiNVT_prefix + ".nc -inf " + equiNVT_prefix + ".info" + "\n\n")
-RunFile.writelines("$AMBERPATH/pmemd.cuda_SPFP -O -i " + equiNPT_prefix + ".in -p " +  topfile + " -c " + equiNVT_prefix + ".rst -o " + equiNPT_prefix + ".out -r " + equiNPT_prefix + ".rst -ref " + equiNVT_prefix + ".rst -x " + equiNPT_prefix + ".nc -inf " + equiNPT_prefix + ".info" + "\n\n")
-RunFile.writelines("$AMBERPATH/pmemd.cuda_SPFP -O -i " + prod_prefix + ".in -p " +  topfile + " -c " + prod_prefix + ".rst -o " + prod_prefix + ".out -r " + prod_prefix + ".rst -ref " + equiNPT_prefix + ".rst -x " + prod_prefix + ".nc -inf " + prod_prefix + ".info" + "\n\n")
-RunFile.close()
+singularity exec --nv --bind /raid:/raid /raid/images/amber20.sif pmemd.cuda -O -i min1.in -p $topfile -c min0.rst -o min1.out -r min1.rst -ref min0.rst -x min1.nc -inf min1.info
+
+singularity exec --nv --bind /raid:/raid /raid/images/amber20.sif pmemd.cuda -O -i min2.in -p $topfile -c min1.rst -o min2.out -r min2.rst -ref min1.rst -x min2.nc -inf min2.info
+
+#NVT Heating
+singularity exec --nv --bind /raid:/raid /raid/images/amber20.sif pmemd.cuda_SPFP -O -i heating.in -p $topfile -c min2.rst -o heat.out -r heat.rst -ref min2.rst -x heat.nc -inf heat.info
+
+#NVT Equilibration
+singularity exec --nv --bind /raid:/raid /raid/images/amber20.sif pmemd.cuda_SPFP -O -i equi_NVT.in -p $topfile -c heat.rst -o equi_NVT.out -r equi_NVT.rst -ref heat.rst -x equi_NVT.nc -inf equi_NVT.info
+
+#NPT Equilibration
+singularity exec --nv --bind /raid:/raid /raid/images/amber20.sif pmemd.cuda_SPFP -O -i equi_NPT.in -p $topfile -c equi_NVT.rst -o equi_NPT.out -r equi_NPT.rst -ref equi_NVT.rst -x equi_NPT.nc -inf equi_NPT.info
+
+#Production Run
+singularity exec --nv --bind /raid:/raid /raid/images/amber20.sif pmemd.cuda_SPFP -O -i md_NPT.in -p $topfile -c equi_NPT.rst -o md_NPT.out -r md_NPT.rst -ref equi_NPT.rst -x md_NPT.nc -inf md_NPT.info
+""")
 
 
 
